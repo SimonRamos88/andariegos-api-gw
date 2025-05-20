@@ -32,6 +32,10 @@ public class WebClientConfig {
         return WebClient.builder()
             .baseUrl(userServiceUrl) // MS Usuarios (NestJS)
             .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+            .defaultHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+            .defaultHeader("x-apollo-operation-name", "GraphQLRequest") // Header anti-CSRF
+            .defaultHeader("apollo-require-preflight", "true") // Header alternativo
             .build();
+
     }
 }

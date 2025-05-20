@@ -4,6 +4,11 @@ import lombok.Data;
 
 @Data
 public class UserDetailsResponse {
-    private String id;
-    private String username;
+    private Data data;
+
+    @lombok.Data
+    public static class Data {
+        private User user;
+    }
+
 }

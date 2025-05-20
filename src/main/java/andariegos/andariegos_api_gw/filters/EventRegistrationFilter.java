@@ -3,6 +3,7 @@ package andariegos.andariegos_api_gw.filters;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import andariegos.andariegos_api_gw.dto.GraphQLUserResponse;
 import andariegos.andariegos_api_gw.dto.RegistationResponse;
 import andariegos.andariegos_api_gw.dto.UserDetailsResponse;
 
@@ -20,9 +21,15 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Component
 public class EventRegistrationFilter implements GlobalFilter {
+
+    private static final Logger log = LoggerFactory.getLogger(EventRegistrationFilter.class);
 
     private final WebClient eventServiceWebClient;
     private final WebClient userServiceWebClient;
@@ -43,6 +50,7 @@ public class EventRegistrationFilter implements GlobalFilter {
             return chain.filter(exchange);
         }
 
+
         return processRegistrationRequest(exchange);
     }
 
@@ -56,6 +64,8 @@ public class EventRegistrationFilter implements GlobalFilter {
 
         return attendanceRequest
             .flatMap(request -> {
+
+                log.info("antes de validate user");
                 return  validateUserExists(request)
                     .then(attendanceRequest);
                 
@@ -63,7 +73,7 @@ public class EventRegistrationFilter implements GlobalFilter {
             )
             .flatMap(this::registerAttendance)
             .flatMap(response -> 
-            {   // System.out.println(response);
+            {   log.info("estamos en response");
                 return buildSuccessResponse(exchange, response);})
             .onErrorResume(error -> buildErrorResponse(exchange, error));
     }
@@ -83,7 +93,7 @@ public class EventRegistrationFilter implements GlobalFilter {
             });
     }
 
-    private Mono<UserDetailsResponse> validateUserExists(RegistationResponse request) {
+    private Mono<GraphQLUserResponse> validateUserExists(RegistationResponse request) {
         
         // PARA DEBUGGEAR SI SE ENCUENTRA EL USER
         
@@ -109,14 +119,61 @@ public class EventRegistrationFilter implements GlobalFilter {
         //     .onStatus(HttpStatusCode::isError, response -> 
         //         Mono.error(new RuntimeException("Usuario no encontrado")))
         //     .bodyToMono(UserDetailsResponse.class);
-        return userServiceWebClient.get()
-                .uri("/api/users/{id}", request.getUserId())
-                .retrieve()
-                .onStatus(HttpStatusCode::isError, response -> 
-                    Mono.error(new RuntimeException("Usuario no encontrado")))
-                .bodyToMono(UserDetailsResponse.class);
+
+        // String graphqlQuery = """
+        //     query{
+        //         user(id: $id) {
+        //             id
+        //             name
+        //             email
+        //             roles
+        //         }
+        //     }
+        // """;
+
+        // Map<String, Object> variables = Map.of("id", request.getUserId());
+
+        // return userServiceWebClient.post()
+        //     .bodyValue(Map.of(
+        //         "query", graphqlQuery,
+        //         "variables", variables
+        //     ))
+        //     .retrieve()
+        //     .bodyToMono(UserDetailsResponse.class)
+        //     .doOnNext(response -> log.info("Respuesta del usuario: " ))
+        //     .onErrorResume(e -> Mono.error(new RuntimeException(e.getMessage())));
+        // }
+        log.info("Iniciando validación de usuario para ID: {}", request.getUserId()); // Nuevo log
+    
+   String graphqlQuery = """
+        query GetUser($id: String!) {
+            user(id: $id) {
+                id
+                name
+                email
+                roles
+            }
+        }
+    """;
+
+    Map<String, Object> variables = Map.of("id", request.getUserId());
+    log.info("Variables preparadas: {}", variables); // Nuevo log
+
+    return userServiceWebClient.post()
+        .header("x-apollo-operation-name", "GetUser")
+        .bodyValue(Map.of(
+            "query", graphqlQuery,
+            "variables", variables
+        ))
+        .retrieve()
+        .bodyToMono(GraphQLUserResponse.class)
+        .doOnSubscribe( subscribe -> log.info("Enviando petición GraphQL...")) // Nuevo log
+        .doOnNext(response -> log.info("Respuesta recibida: {}", response))
+        .doOnError(e -> log.error("Error en la petición GraphQL: {}", e.getMessage()))
+        .onErrorResume(e -> Mono.error(new RuntimeException("Error al validar usuario: " + e.getMessage())));
     }
 
+   
     private Mono<RegistationResponse> registerAttendance(RegistationResponse request) {
 
         // System.out.println("register attendance request: "+ request);
