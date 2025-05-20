@@ -145,33 +145,34 @@ public class EventRegistrationFilter implements GlobalFilter {
         // }
         log.info("Iniciando validación de usuario para ID: {}", request.getUserId()); // Nuevo log
     
-   String graphqlQuery = """
-        query GetUser($id: String!) {
-            user(id: $id) {
-                id
-                name
-                email
-                roles
+        String userId = request.getUserId();
+
+        String graphqlQuery = """
+            query {
+                user(id: "%s") {
+                    name
+                    username
+                    email
+                    password
+                    roles
+                    state
+                }
             }
+        """.formatted(userId); 
+
+        return userServiceWebClient.post()
+            .header("x-apollo-operation-name", "GetUser")
+            .bodyValue(Map.of(
+                "query", graphqlQuery
+            ))
+            .retrieve()
+            .bodyToMono(GraphQLUserResponse.class)
+            .doOnSubscribe(subscribe -> log.info("Enviando petición GraphQL..."))
+            .doOnNext(response -> log.info("Respuesta recibida: {}", response))
+            .doOnError(e -> log.error("Error en la petición GraphQL: {}", e.getMessage()))
+            .onErrorResume(e -> Mono.error(new RuntimeException("Error al validar usuario: " + e.getMessage())));
+
         }
-    """;
-
-    Map<String, Object> variables = Map.of("id", request.getUserId());
-    log.info("Variables preparadas: {}", variables); // Nuevo log
-
-    return userServiceWebClient.post()
-        .header("x-apollo-operation-name", "GetUser")
-        .bodyValue(Map.of(
-            "query", graphqlQuery,
-            "variables", variables
-        ))
-        .retrieve()
-        .bodyToMono(GraphQLUserResponse.class)
-        .doOnSubscribe( subscribe -> log.info("Enviando petición GraphQL...")) // Nuevo log
-        .doOnNext(response -> log.info("Respuesta recibida: {}", response))
-        .doOnError(e -> log.error("Error en la petición GraphQL: {}", e.getMessage()))
-        .onErrorResume(e -> Mono.error(new RuntimeException("Error al validar usuario: " + e.getMessage())));
-    }
 
    
     private Mono<RegistationResponse> registerAttendance(RegistationResponse request) {
