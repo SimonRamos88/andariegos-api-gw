@@ -4,41 +4,40 @@ spring:
       routes:
         # Ruta para registro de eventos (nueva)
         - id: event-registration
-          uri: http://localhost:9080
+          uri: ${EVENT_SERVICE}
           predicates:
             - Path=/api/events/registration
             - Method=POST
-        
+
         # Ruta existente para obtener asistentes (se mantiene igual)
         - id: event-attendees
-          uri: http://localhost:9080
+          uri: ${EVENT_SERVICE}
           predicates:
             - Path=/api/events/registration/attendees/*
-         # Ruta para GET /api/events (obtener todos los eventos)
+          # Ruta para GET /api/events (obtener todos los eventos)
         - id: events-get-all
-          uri: http://localhost:9080  # MS de Eventos
+          uri: ${EVENT_SERVICE} # MS de Eventos
           predicates:
             - Path=/api/events
             - Method=GET
 
         # Ruta para GET /api/events/{id} (obtener un evento específico)
         - id: events-get-by-id
-          uri: http://localhost:9080
+          uri: ${EVENT_SERVICE}
           predicates:
             - Path=/api/events/{id}
             - Method=GET
 
         # Ruta para POST /api/events (crear evento)
         - id: events-create
-          uri: http://localhost:9080
+          uri: ${EVENT_SERVICE}
           predicates:
             - Path=/api/events
             - Method=POST
 
         # Ruta para PUT /api/events/{id} (actualizar evento)
         - id: events-update
-          uri: http://localhost:9080
+          uri: ${EVENT_SERVICE}
           predicates:
             - Path=/api/events/{id}
             - Method=PUT
-

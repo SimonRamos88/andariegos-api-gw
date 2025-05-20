@@ -6,15 +6,23 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.beans.factory.annotation.Value;
+
 
 @Configuration
 public class WebClientConfig {
+
+    @Value("${EVENT_SERVICE}")
+    private String eventServiceUrl;
+
+    @Value("${PROFILE_SERVICE}")
+    private String userServiceUrl;
     
     @Bean
     @Primary
     public WebClient eventServiceWebClient() {
         return WebClient.builder()
-            .baseUrl("http://localhost:9080") // MS Eventos (Spring Boot)
+            .baseUrl(eventServiceUrl) // MS Eventos (Spring Boot)
             .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
             .build();
     }
@@ -22,7 +30,7 @@ public class WebClientConfig {
     @Bean
     public WebClient userServiceWebClient() {
         return WebClient.builder()
-            .baseUrl("http://localhost:4000") // MS Usuarios (NestJS)
+            .baseUrl(userServiceUrl) // MS Usuarios (NestJS)
             .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
             .build();
     }
