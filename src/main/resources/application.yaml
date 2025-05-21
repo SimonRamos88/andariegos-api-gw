@@ -1,6 +1,15 @@
 spring:
   cloud:
     gateway:
+      globalcors:
+        corsConfigurations:
+          "[/**]":
+            allowedOrigins:
+              - "http://localhost:3002"
+              - "http://localhost:3000"
+              - ${CLIENT_SERVICE}
+            allowedMethods: "*"
+            allowedHeaders: "*"
       routes:
         # Ruta para registro de eventos (nueva)
         - id: event-registration
@@ -94,7 +103,6 @@ spring:
           filters:
             - RewritePath=/api/(?<segment>.*), /graphql/api/$\{segment}
 
-
         # Operaciones CRUD
         - id: user-update
           uri: ${PROFILE_SERVICE}
@@ -111,4 +119,3 @@ spring:
             - Method=DELETE
           filters:
             - RewritePath=/api/(?<segment>.*), /graphql/api/$\{segment}
-

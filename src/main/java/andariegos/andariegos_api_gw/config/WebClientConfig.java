@@ -5,18 +5,47 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.reactive.CorsWebFilter;
+import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
 import org.springframework.web.reactive.function.client.WebClient;
+
+import java.util.Arrays;
+
 import org.springframework.beans.factory.annotation.Value;
+;
 
 
 @Configuration
 public class WebClientConfig {
+    
 
     @Value("${EVENT_SERVICE}")
     private String eventServiceUrl;
 
     @Value("${PROFILE_SERVICE}")
     private String userServiceUrl;
+
+    @Value("${CLIENT_SERVICE}")
+    private String clientServiceUrl;
+
+    @Bean
+    public CorsWebFilter corsWebFilter() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowCredentials(true);
+        config.setAllowedOrigins(Arrays.asList(
+        "http://localhost:3002",
+        clientServiceUrl
+        ));
+        config.addAllowedHeader("*");
+        config.addAllowedMethod("*");
+        config.addExposedHeader("Authorization");
+        
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        
+        return new CorsWebFilter(source);
+    }
     
     @Bean
     @Primary
