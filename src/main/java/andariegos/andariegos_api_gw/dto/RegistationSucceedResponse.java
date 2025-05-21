@@ -4,9 +4,11 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
-@JsonIgnoreProperties(ignoreUnknown = true)
+import lombok.Data;
+
+
+
 @Data
 public class RegistationSucceedResponse {
     private String id;
@@ -14,15 +16,14 @@ public class RegistationSucceedResponse {
     private Long eventId;
     private String userId;
 
-    @JsonIgnoreProperties(ignoreUnknown = true)
     @Data
     public static class Event{
          private String idEvent;
         private String name;
         private String description;
         
-        // @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
-        // private LocalDateTime date;
+        @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
+        private LocalDateTime date;
         
         private String city;
         private String address;

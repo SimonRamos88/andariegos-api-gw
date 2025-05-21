@@ -56,9 +56,9 @@ public class AttendanceAggregationFilter implements GlobalFilter {
         
         return fetchAttendanceRecords(eventId)
             .flatMap(this::extractUserIds)
-            .doOnNext(response -> log.info("userids: {}", response))
+            .doOnNext(response -> log.info("userids 1: {}", response))
             .flatMap(this::fetchUserDetails)
-            .doOnNext(response -> log.info("userdet: {}", response))
+            .doOnNext(response -> log.info("userdet 2: {}", response))
             .flatMap(userDetails -> buildResponse(exchange, userDetails))
             .onErrorResume(e -> handleError(exchange, e));
     }
@@ -101,37 +101,65 @@ public class AttendanceAggregationFilter implements GlobalFilter {
     log.info(userIdsString);
 
     String graphqlQuery = """
-        query{
+     query{
             findUsersByIds(userIds: %s){
-                name
-                email
-                username
-                state
-                roles
-                password
+                user{
+                    name
+                    email
+                    name
+                    username
+                    email
+                    password
+                    roles
+                    state
+                }
+                
             }
 
         }
+
 
     """.formatted(userIdsString, null);
 
     log.info(graphqlQuery);
 
+    // return userServiceWebClient.post()
+    // .header("x-apollo-operation-name", "GetUser")
+    // .bodyValue(Map.of(
+    //     "query", graphqlQuery
+    // ))
+    // .retrieve()
+    // .bodyToMono(GraphQLUsersDetailsResponse.class)
+    // .doOnNext(response -> log.info("userdet1: {}", response.toString()))
+    // .onErrorResume(e -> Mono.error(new RuntimeException("Error al validar usuario: " + e.getMessage())));
 
+
+                
     return userServiceWebClient.post()
         .header("x-apollo-operation-name", "GetUser")
         .bodyValue(Map.of(
             "query", graphqlQuery
         ))
         .retrieve()
-        .bodyToMono(GraphQLUsersDetailsResponse.class)
-        .doOnNext(response -> log.info("userdet1: {}", response.toString()))
-        .onErrorResume(e -> Mono.error(new RuntimeException("Error al validar usuario: " + e.getMessage())));
+        .bodyToMono(String.class) // primero como JSON crudo
+        .doOnNext(json -> log.info("JSON recibido: {}", json)) // log del JSON crudo
+        .map(json -> {
+            try {
+                // convertir tú mismo con Jackson u otro
+                ObjectMapper mapper = new ObjectMapper();
+                log.info("antes de mapper");
+                return mapper.readValue(json, GraphQLUsersDetailsResponse.class);
+            } catch (Exception e) {
+                 log.error("Error al convertir JSON a objeto: {}", e.getMessage(), e);
+                throw new RuntimeException("Error al convertir JSON a objeto", e);
+            }
+        }).onErrorResume(e -> Mono.error(new RuntimeException("Error al validar usuario: " + e.getMessage())));
     }
 
 
     private Mono<Void> buildResponse(ServerWebExchange exchange, GraphQLUsersDetailsResponse userDetails) {
     try {
+        log.info("llego a build");
         exchange.getResponse().getHeaders().setContentType(MediaType.APPLICATION_JSON);
         byte[] bytes = objectMapper.writeValueAsBytes(userDetails);
         DataBuffer buffer = exchange.getResponse().bufferFactory().wrap(bytes);
