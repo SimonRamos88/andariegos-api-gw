@@ -30,7 +30,7 @@ public class WebClientConfig {
     @Bean
     public WebClient userServiceWebClient() {
         return WebClient.builder()
-            .baseUrl(userServiceUrl) // MS Usuarios (NestJS)
+            .baseUrl(userServiceUrl+"/graphql") // MS Usuarios (NestJS)
             .defaultHeader(HttpHeaders.CONTENT_TYPE, "application/json")
             .defaultHeader("x-apollo-operation-name", "GraphQLRequest") // Header anti-CSRF
             .build();

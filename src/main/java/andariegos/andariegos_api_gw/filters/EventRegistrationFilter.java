@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import andariegos.andariegos_api_gw.dto.GraphQLUserResponse;
 import andariegos.andariegos_api_gw.dto.RegistationResponse;
+import andariegos.andariegos_api_gw.dto.RegistationSucceedResponse;
 import andariegos.andariegos_api_gw.dto.UserDetailsResponse;
 
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -74,6 +75,7 @@ public class EventRegistrationFilter implements GlobalFilter {
             .flatMap(this::registerAttendance)
             .flatMap(response -> 
             {   log.info("estamos en response");
+                log.info(response.toString());
                 return buildSuccessResponse(exchange, response);})
             .onErrorResume(error -> buildErrorResponse(exchange, error));
     }
@@ -95,54 +97,6 @@ public class EventRegistrationFilter implements GlobalFilter {
 
     private Mono<GraphQLUserResponse> validateUserExists(RegistationResponse request) {
         
-        // PARA DEBUGGEAR SI SE ENCUENTRA EL USER
-        
-        // userServiceWebClient.get()
-        // .uri("/api/users/{id}", request.getUserId())
-        // .retrieve()
-        // .onStatus(HttpStatusCode::isError, response -> 
-        //     Mono.error(new RuntimeException("Usuario no encontrado")))
-        // .bodyToMono(UserDetailsResponse.class)
-        // .doOnNext(userDetails -> 
-        //     System.out.println("Usuario encontrado: " + userDetails) // Imprime el usuario
-        // )
-        // .doOnError(error -> 
-        //     System.err.println("Error al validar usuario: " + error.getMessage()) // Imprime errores
-        // );
-
-
-        // VERSION FNAL PARA NO DEBUGGEAR
-
-        // userServiceWebClient.get()
-        //     .uri("/api/users/{id}", request.getUserId())
-        //     .retrieve()
-        //     .onStatus(HttpStatusCode::isError, response -> 
-        //         Mono.error(new RuntimeException("Usuario no encontrado")))
-        //     .bodyToMono(UserDetailsResponse.class);
-
-        // String graphqlQuery = """
-        //     query{
-        //         user(id: $id) {
-        //             id
-        //             name
-        //             email
-        //             roles
-        //         }
-        //     }
-        // """;
-
-        // Map<String, Object> variables = Map.of("id", request.getUserId());
-
-        // return userServiceWebClient.post()
-        //     .bodyValue(Map.of(
-        //         "query", graphqlQuery,
-        //         "variables", variables
-        //     ))
-        //     .retrieve()
-        //     .bodyToMono(UserDetailsResponse.class)
-        //     .doOnNext(response -> log.info("Respuesta del usuario: " ))
-        //     .onErrorResume(e -> Mono.error(new RuntimeException(e.getMessage())));
-        // }
         log.info("Iniciando validación de usuario para ID: {}", request.getUserId()); // Nuevo log
     
         String userId = request.getUserId();
@@ -175,48 +129,32 @@ public class EventRegistrationFilter implements GlobalFilter {
         }
 
    
-    private Mono<RegistationResponse> registerAttendance(RegistationResponse request) {
+    private Mono<RegistationSucceedResponse> registerAttendance(RegistationResponse request) {
 
-        // System.out.println("register attendance request: "+ request);
-
-        // FRO DEBUGGING
-
-        //  return eventServiceWebClient.post()
-        // .uri("/api/events/registration")
-        // .bodyValue(request)
-        // .retrieve()
-        // .bodyToMono(RegistationResponse.class)
-        // .doOnNext(response -> 
-        //     System.out.println("Register attendance success: " + response) // Loguea la respuesta exitosa
-        // )
-        // .doOnError(error -> 
-        //     System.err.println("Register attendance failed: " + error.getMessage()) // Loguea errores
-        // );
-
-        // LA NORMAL
-
-        // return eventServiceWebClient.post()
-        //     .uri("/api/events/registration")
-        //     .bodyValue(request)
-        //     .retrieve()
-        //     .bodyToMono(RegistationResponse.class);
-
-        // System.out.println("Calling: POST http://localhost:9080/api/events/registration");
-        // try {
-        //     System.out.println("Body: " + new ObjectMapper().writeValueAsString(request));
-        // } catch (JsonProcessingException e) {
-        //     System.err.println("Error al serializar el request: " + e.getMessage());
-        // }
 
         return eventServiceWebClient.post()
             .uri("/api/events/registration")
             .bodyValue(request)
             .retrieve()
-            .bodyToMono(RegistationResponse.class);
-    }
+            .bodyToMono(String.class) // primero como JSON crudo
+            .doOnNext(json -> log.info("JSON recibido: {}", json)) // log del JSON crudo
+            .map(json -> {
+                try {
+                    // convertir tú mismo con Jackson u otro
+                    ObjectMapper mapper = new ObjectMapper();
+                    return mapper.readValue(json, RegistationSucceedResponse.class);
+                } catch (Exception e) {
+                    throw new RuntimeException("Error al convertir JSON a objeto", e);
+                }
+            });
+        }
 
-    private Mono<Void> buildSuccessResponse(ServerWebExchange exchange, RegistationResponse response) {
+    private Mono<Void> buildSuccessResponse(ServerWebExchange exchange, RegistationSucceedResponse response) {
         try {
+
+            log.info(response.toString());
+            String json = objectMapper.writeValueAsString(response);
+            log.info("JSON de respuesta: {}", response);
             exchange.getResponse().getHeaders().setContentType(MediaType.APPLICATION_JSON);
             byte[] bytes = objectMapper.writeValueAsBytes(response);
             DataBuffer buffer = exchange.getResponse().bufferFactory().wrap(bytes);

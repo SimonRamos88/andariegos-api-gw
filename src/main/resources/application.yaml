@@ -41,3 +41,74 @@ spring:
           predicates:
             - Path=/api/events/{id}
             - Method=PUT
+
+        # RUTAS DE MS PROFILE
+        - id: auth-login
+          uri: ${PROFILE_SERVICE}
+          predicates:
+            - Path=/api/login
+            - Method=POST
+          filters:
+            - RewritePath=/api/(?<segment>.*), /graphql/api/$\{segment}
+
+        # Perfil de usuario
+        - id: user-profile
+          uri: ${PROFILE_SERVICE}
+          predicates:
+            - Path=/api/profile
+            - Method=GET
+          filters:
+            - RewritePath=/api/(?<segment>.*), /graphql/api/$\{segment}
+
+        # Registro de usuario
+        - id: user-register
+          uri: ${PROFILE_SERVICE}
+          predicates:
+            - Path=/api/registerUser
+            - Method=POST
+          filters:
+            - RewritePath=/api/(?<segment>.*), /graphql/api/$\{segment}
+
+        # Consultas de usuarios (GraphQL)
+        - id: users-find-by-ids
+          uri: ${PROFILE_SERVICE}
+          predicates:
+            - Path=/api/findUsersByIds
+            - Method=POST
+          filters:
+            - RewritePath=/api/(?<segment>.*), /graphql/api/$\{segment}
+
+        - id: users-find-all
+          uri: ${PROFILE_SERVICE}
+          predicates:
+            - Path=/api/findAll
+            - Method=GET
+          filters:
+            - RewritePath=/api/(?<segment>.*), /graphql/api/$\{segment}
+
+        - id: user-find-by-id
+          uri: ${PROFILE_SERVICE}
+          predicates:
+            - Path=/api/findById
+            - Method=GET
+          filters:
+            - RewritePath=/api/(?<segment>.*), /graphql/api/$\{segment}
+
+
+        # Operaciones CRUD
+        - id: user-update
+          uri: ${PROFILE_SERVICE}
+          predicates:
+            - Path=/api/updateUser
+            - Method=PUT
+          filters:
+            - RewritePath=/api/(?<segment>.*), /graphql/api/$\{segment}
+
+        - id: user-remove
+          uri: ${PROFILE_SERVICE}
+          predicates:
+            - Path=/api/removeUser
+            - Method=DELETE
+          filters:
+            - RewritePath=/api/(?<segment>.*), /graphql/api/$\{segment}
+

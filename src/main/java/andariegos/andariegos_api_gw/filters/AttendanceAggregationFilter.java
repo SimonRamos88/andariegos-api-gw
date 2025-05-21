@@ -1,6 +1,7 @@
 package andariegos.andariegos_api_gw.filters;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -18,9 +19,13 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import andariegos.andariegos_api_gw.dto.AttendanceResponse;
+import andariegos.andariegos_api_gw.dto.GraphQLUsersDetailsResponse;
 import andariegos.andariegos_api_gw.dto.UserDetailsResponse;
 import andariegos.andariegos_api_gw.dto.UsersDetailsResponse;
 import reactor.core.publisher.Mono;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Component
 public class AttendanceAggregationFilter implements GlobalFilter {
@@ -29,6 +34,10 @@ public class AttendanceAggregationFilter implements GlobalFilter {
     private final WebClient userServiceWebClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+
+    private static final Logger log = LoggerFactory.getLogger(EventRegistrationFilter.class);
+
+
     public AttendanceAggregationFilter(
         @Qualifier("eventServiceWebClient") WebClient eventServiceWebClient,
         @Qualifier("userServiceWebClient") WebClient userServiceWebClient
@@ -36,21 +45,6 @@ public class AttendanceAggregationFilter implements GlobalFilter {
         this.eventServiceWebClient = eventServiceWebClient;
         this.userServiceWebClient = userServiceWebClient;
     }
-
-    // @Override
-    // public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-    //     if (!isValidPath(exchange.getRequest().getPath().toString())) {
-    //         return chain.filter(exchange);
-    //     }
-
-    //     String eventId = extractEventId(exchange.getRequest().getPath().toString());
-        
-    //     return fetchAttendanceRecords(eventId)
-    //         .flatMap(this::extractUserIds) // Extrae solo los IDs de usuario
-    //         .flatMap(this::fetchUserDetails)
-    //         .flatMap(userDetails -> buildResponse(exchange, userDetails))
-    //         .onErrorResume(e -> handleError(exchange, e));
-    // }
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
@@ -61,19 +55,15 @@ public class AttendanceAggregationFilter implements GlobalFilter {
         String eventId = extractEventId(exchange.getRequest().getPath().toString());
         
         return fetchAttendanceRecords(eventId)
-            .flatMap(records -> {
-                if (records.isEmpty()) {
-                    exchange.getResponse().setStatusCode(HttpStatus.NOT_FOUND);
-                    return exchange.getResponse().setComplete();
-                }
-                
-                // System.out.println(records);
-                String firstUserId = records.get(0).getUserId(); // Asume que userId es String
-                // System.out.println("priemr id" + firstUserId);
-                return fetchSingleUserDetails(firstUserId)
-                    .flatMap(userDetails -> buildResponse(exchange, userDetails));
-            });
+            .flatMap(this::extractUserIds)
+            .doOnNext(response -> log.info("userids 1: {}", response))
+            .flatMap(this::fetchUserDetails)
+            .doOnNext(response -> log.info("userdet 2: {}", response))
+            .flatMap(userDetails -> buildResponse(exchange, userDetails))
+            .onErrorResume(e -> handleError(exchange, e));
     }
+
+
 
     // --- Métodos actualizados ---
 
@@ -100,35 +90,84 @@ public class AttendanceAggregationFilter implements GlobalFilter {
         return Mono.just(userIds);
     }
 
-    private Mono<UsersDetailsResponse> fetchUserDetails(List<String> userIds) {
-        return userServiceWebClient.post()
-            .uri("/api/users/batch")
-            .bodyValue(userIds)
-            .retrieve()
-            .bodyToMono(UsersDetailsResponse.class);
-    }
+    private Mono<GraphQLUsersDetailsResponse> fetchUserDetails(List<String> userIds) {
 
-    // private Mono<Void> buildResponse(ServerWebExchange exchange, UsersDetailsResponse userDetails) {
-    //     try {
-    //         exchange.getResponse().getHeaders().setContentType(MediaType.APPLICATION_JSON);
-    //         byte[] bytes = objectMapper.writeValueAsBytes(userDetails);
-    //         DataBuffer buffer = exchange.getResponse().bufferFactory().wrap(bytes);
-    //         return exchange.getResponse().writeWith(Mono.just(buffer));
-    //     } catch (JsonProcessingException e) {
-    //         return Mono.error(e);
-    //     }
-    // }
+    log.info(userIds.getClass().getName());
 
-       private Mono<Void> buildResponse(ServerWebExchange exchange, UserDetailsResponse userDetails) {
-        try {
-            exchange.getResponse().getHeaders().setContentType(MediaType.APPLICATION_JSON);
-            byte[] bytes = objectMapper.writeValueAsBytes(userDetails);
-            DataBuffer buffer = exchange.getResponse().bufferFactory().wrap(bytes);
-            return exchange.getResponse().writeWith(Mono.just(buffer));
-        } catch (JsonProcessingException e) {
-            return Mono.error(e);
+    String userIdsString = userIds.stream()
+    .map(id -> "\"" + id + "\"")  // poner comillas dobles alrededor de cada ID
+    .collect(Collectors.joining(", ", "[ ", " ]"));
+
+    log.info(userIdsString);
+
+    String graphqlQuery = """
+     query{
+            findUsersByIds(userIds: %s){
+                user{
+                    name
+                    email
+                    name
+                    username
+                    email
+                    password
+                    roles
+                    state
+                }
+                
+            }
+
         }
+
+
+    """.formatted(userIdsString, null);
+
+    log.info(graphqlQuery);
+
+    // return userServiceWebClient.post()
+    // .header("x-apollo-operation-name", "GetUser")
+    // .bodyValue(Map.of(
+    //     "query", graphqlQuery
+    // ))
+    // .retrieve()
+    // .bodyToMono(GraphQLUsersDetailsResponse.class)
+    // .doOnNext(response -> log.info("userdet1: {}", response.toString()))
+    // .onErrorResume(e -> Mono.error(new RuntimeException("Error al validar usuario: " + e.getMessage())));
+
+
+                
+    return userServiceWebClient.post()
+        .header("x-apollo-operation-name", "GetUser")
+        .bodyValue(Map.of(
+            "query", graphqlQuery
+        ))
+        .retrieve()
+        .bodyToMono(String.class) // primero como JSON crudo
+        .doOnNext(json -> log.info("JSON recibido: {}", json)) // log del JSON crudo
+        .map(json -> {
+            try {
+                // convertir tú mismo con Jackson u otro
+                ObjectMapper mapper = new ObjectMapper();
+                log.info("antes de mapper");
+                return mapper.readValue(json, GraphQLUsersDetailsResponse.class);
+            } catch (Exception e) {
+                 log.error("Error al convertir JSON a objeto: {}", e.getMessage(), e);
+                throw new RuntimeException("Error al convertir JSON a objeto", e);
+            }
+        }).onErrorResume(e -> Mono.error(new RuntimeException("Error al validar usuario: " + e.getMessage())));
     }
+
+
+    private Mono<Void> buildResponse(ServerWebExchange exchange, GraphQLUsersDetailsResponse userDetails) {
+    try {
+        log.info("llego a build");
+        exchange.getResponse().getHeaders().setContentType(MediaType.APPLICATION_JSON);
+        byte[] bytes = objectMapper.writeValueAsBytes(userDetails);
+        DataBuffer buffer = exchange.getResponse().bufferFactory().wrap(bytes);
+        return exchange.getResponse().writeWith(Mono.just(buffer));
+    } catch (JsonProcessingException e) {
+        return Mono.error(e);
+    }
+}
 
     private Mono<Void> handleError(ServerWebExchange exchange, Throwable error) {
         exchange.getResponse().setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR);
@@ -137,13 +176,7 @@ public class AttendanceAggregationFilter implements GlobalFilter {
 
 
 
-         // Método para obtener detalles de un solo usuario
-    private Mono<UserDetailsResponse> fetchSingleUserDetails(String userId) {
-        return userServiceWebClient.get()
-            .uri("/api/users/{id}", userId)
-            .retrieve()
-            .bodyToMono(UserDetailsResponse.class); // Asume que UserDetails es tu DTO para un usuario individual
-    }
+
 }
 
 
