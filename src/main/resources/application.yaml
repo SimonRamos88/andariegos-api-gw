@@ -48,6 +48,8 @@ spring:
           predicates:
             - Path=/api/login
             - Method=POST
+          filters:
+            - RewritePath=/api/(?<segment>.*), /graphql/api/$\{segment}
 
         # Perfil de usuario
         - id: user-profile
@@ -55,6 +57,8 @@ spring:
           predicates:
             - Path=/api/profile
             - Method=GET
+          filters:
+            - RewritePath=/api/(?<segment>.*), /graphql/api/$\{segment}
 
         # Registro de usuario
         - id: user-register
@@ -62,6 +66,8 @@ spring:
           predicates:
             - Path=/api/registerUser
             - Method=POST
+          filters:
+            - RewritePath=/api/(?<segment>.*), /graphql/api/$\{segment}
 
         # Consultas de usuarios (GraphQL)
         - id: users-find-by-ids
@@ -69,18 +75,24 @@ spring:
           predicates:
             - Path=/api/findUsersByIds
             - Method=POST
+          filters:
+            - RewritePath=/api/(?<segment>.*), /graphql/api/$\{segment}
 
         - id: users-find-all
           uri: ${PROFILE_SERVICE}
           predicates:
             - Path=/api/findAll
             - Method=GET
+          filters:
+            - RewritePath=/api/(?<segment>.*), /graphql/api/$\{segment}
 
         - id: user-find-by-id
           uri: ${PROFILE_SERVICE}
           predicates:
             - Path=/api/findById
             - Method=GET
+          filters:
+            - RewritePath=/api/(?<segment>.*), /graphql/api/$\{segment}
 
 
         # Operaciones CRUD
@@ -89,10 +101,14 @@ spring:
           predicates:
             - Path=/api/updateUser
             - Method=PUT
+          filters:
+            - RewritePath=/api/(?<segment>.*), /graphql/api/$\{segment}
 
         - id: user-remove
           uri: ${PROFILE_SERVICE}
           predicates:
             - Path=/api/removeUser
             - Method=DELETE
+          filters:
+            - RewritePath=/api/(?<segment>.*), /graphql/api/$\{segment}
 
