@@ -5,8 +5,6 @@ spring:
         corsConfigurations:
           "[/**]":
             allowedOrigins:
-              - "http://localhost:3002"
-              - "http://localhost:3000"
               - ${CLIENT_SERVICE}
             allowedMethods: "*"
             allowedHeaders: "*"
@@ -119,3 +117,10 @@ spring:
             - Method=DELETE
           filters:
             - RewritePath=/api/(?<segment>.*), /graphql/api/$\{segment}
+
+        - id: graphql
+          uri: ${PROFILE_SERVICE}
+          predicates:
+            - Path=/graphql/**
+          filters:
+            - RewritePath=/graphql/(?<segment>.*), /${segment}

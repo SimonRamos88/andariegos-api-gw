@@ -33,10 +33,7 @@ public class WebClientConfig {
     public CorsWebFilter corsWebFilter() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowCredentials(true);
-        config.setAllowedOrigins(Arrays.asList(
-        "http://localhost:3002",
-        clientServiceUrl
-        ));
+        config.addAllowedOrigin(clientServiceUrl);
         config.addAllowedHeader("*");
         config.addAllowedMethod("*");
         config.addExposedHeader("Authorization");
