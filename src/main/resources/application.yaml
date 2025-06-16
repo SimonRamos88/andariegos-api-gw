@@ -21,7 +21,7 @@ spring:
           predicates:
             - Path=/api/report
             - Method=GET
-        
+
         - id: report-by-id-route
           uri: ${REPORTS_SERVICE}
           predicates:
@@ -66,14 +66,21 @@ spring:
             - Path=/api/events/{id}
             - Method=PUT
 
+        # Ruta para DELETE /api/events/{id} (eliminar evento)
+        - id: events-delete
+          uri: ${EVENT_SERVICE}
+          predicates:
+            - Path=/api/events/{id}
+            - Method=DELETE
+
         # RUTAS DE MS PROFILE
         - id: auth-login
-          uri: ${PROFILE_SERVICE}
+          uri: ${AUTH_SERVICE}
           predicates:
-            - Path=/api/login
+            - Path=/api/auth/login
             - Method=POST
-          filters:
-            - RewritePath=/api/(?<segment>.*), /graphql/api/$\{segment}
+          # filters:
+          #   - RewritePath=/api/(?<segment>.*), /graphql/api/$\{segment}
 
         # Perfil de usuario
         - id: user-profile
