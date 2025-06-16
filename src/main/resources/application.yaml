@@ -16,6 +16,12 @@ spring:
             - Path=/api/events/registration
             - Method=POST
 
+        - id: report-route
+          uri: ${REPORTS_SERVICE}
+          predicates:
+            - Path=/api/reports
+            - Method=POST
+
         # Ruta existente para obtener asistentes (se mantiene igual)
         - id: event-attendees
           uri: ${EVENT_SERVICE}

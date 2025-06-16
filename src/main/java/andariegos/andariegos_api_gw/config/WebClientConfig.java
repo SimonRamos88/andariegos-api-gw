@@ -29,6 +29,9 @@ public class WebClientConfig {
     @Value("${CLIENT_SERVICE}")
     private String clientServiceUrl;
 
+     @Value("${REPORTS_SERVICE}")
+    private String reportsServiceUrl;
+
     @Bean
     public CorsWebFilter corsWebFilter() {
         CorsConfiguration config = new CorsConfiguration();
@@ -61,5 +64,14 @@ public class WebClientConfig {
             .defaultHeader("x-apollo-operation-name", "GraphQLRequest") // Header anti-CSRF
             .build();
 
+    }
+
+
+    @Bean
+    public WebClient reportServiceWebClient() {
+        return WebClient.builder()
+            .baseUrl(reportsServiceUrl) // MS Eventos (Spring Boot)
+            .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+            .build();
     }
 }
