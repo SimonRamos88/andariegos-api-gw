@@ -65,6 +65,18 @@ spring:
           predicates:
             - Path=/api/events/{id}
             - Method=PUT
+        
+        - id: tours-create
+          uri: ${EVENT_SERVICE}
+          predicates:
+            - Path=/api/tours
+            - Method=POST
+        
+        - id: tours-update
+          uri: ${EVENT_SERVICE}
+          predicates:
+            - Path=/api/tours/**
+            - Method=PUT
 
         # RUTAS DE MS PROFILE
         - id: auth-login
