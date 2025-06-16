@@ -24,8 +24,8 @@ public class Report {
         return id_event;
     }
 
-    public void setIdEvent(Long idEvent) {
-        this.id_event = idEvent;
+    public void setIdEvent(Long id_event) {
+        this.id_event = id_event;
     }
 
     public String getIdReporter() {

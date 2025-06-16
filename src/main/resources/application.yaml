@@ -16,12 +16,23 @@ spring:
             - Path=/api/events/registration
             - Method=POST
 
-        - id: report-route
+        - id: all-report-route
           uri: ${REPORTS_SERVICE}
           predicates:
-            - Path=/api/reports
-            - Method=POST
+            - Path=/api/report
+            - Method=GET
+        
+        - id: report-by-id-route
+          uri: ${REPORTS_SERVICE}
+          predicates:
+            - Path=/api/report/{id}
+            - Method=GET
 
+        - id: report-by-state-route
+          uri: ${REPORTS_SERVICE}
+          predicates:
+            - Path=/api/report/state/{state}
+            - Method=GET
         # Ruta existente para obtener asistentes (se mantiene igual)
         - id: event-attendees
           uri: ${EVENT_SERVICE}

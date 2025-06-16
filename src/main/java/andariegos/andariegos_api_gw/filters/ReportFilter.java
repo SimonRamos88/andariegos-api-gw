@@ -1,12 +1,6 @@
 package andariegos.andariegos_api_gw.filters;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
-import andariegos.andariegos_api_gw.dto.GraphQLUserResponse;
-import andariegos.andariegos_api_gw.dto.RegistationResponse;
-import andariegos.andariegos_api_gw.dto.RegistationSucceedResponse;
-import andariegos.andariegos_api_gw.dto.UserDetailsResponse;
 import andariegos.andariegos_api_gw.dto.Report;
 
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -15,7 +9,6 @@ import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.stereotype.Component;
@@ -24,10 +17,9 @@ import org.springframework.web.server.ServerWebExchange;
 
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+
 import java.nio.charset.StandardCharsets;
-import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,48 +43,77 @@ public class ReportFilter implements GlobalFilter {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-        if (!isReportRequest(exchange.getRequest())) {
-            return chain.filter(exchange);
+        String path = exchange.getRequest().getPath().toString();
+        HttpMethod method = exchange.getRequest().getMethod();
+
+        if ("/api/report".equals(path) && method == HttpMethod.GET) {
+            log.info("Obteniendo todos los reportes");
+            return handleAllReports(exchange);
+        }
+
+        if (path.matches("/api/report/[a-fA-F0-9]+") && method == HttpMethod.GET) {
+            String id = path.split("/")[3];
+            log.info("Obteniendo reporte con ID {}", id);
+            return handleReportById(exchange, id);
+        }
+
+        if (path.matches("/api/report/state/(accepted|denied|pending)") && method == HttpMethod.GET) {
+            String state = path.split("/")[4];
+            log.info("Obteniendo reportes con estado {}", state);
+            return handleReportsByState(exchange, state);
         }
 
 
-        return processReportRequest(exchange);
+        return chain.filter(exchange);
     }
 
-    
- private Mono<Void> processReportRequest(ServerWebExchange exchange) {
-    return retrieveAllReports()
-        .doOnNext(reportList -> log.info("Reportes obtenidos: {}", reportList)) // 👈 log de toda la lista
-        .flatMapMany(Flux::fromIterable) // Mono<List<Report>> → Flux<Report>
-        .doOnNext(report -> log.info("Procesando reporte con ID: {}", report.getIdEvent())) // 👈 log antes de getEventName
-        .flatMap(report -> 
-            getEventName(report.getIdEvent()) // Mono<String>
-                .doOnNext(eventName -> log.info("Nombre del evento para ID {}: {}", report.getIdEvent(), eventName)) 
-                .map(eventName -> {
-                    report.setEventName(eventName);
-                    return report;
-                })
-        )
-        .flatMap(updatedReport -> buildSuccessResponse(exchange, updatedReport)) // Mono<Void>
-        .then()
-        .onErrorResume(error -> buildErrorResponse(exchange, error));
-}
+    private Mono<Void> handleAllReports(ServerWebExchange exchange) {
+        return retrieveAllReports()
+            .flatMapMany(Flux::fromIterable)
+            .flatMap(this::setEventName)
+            .collectList()
+            .flatMap(reportList -> buildSuccessResponse(exchange, reportList))
+            .onErrorResume(error -> buildErrorResponse(exchange, error));
+    }
 
+    private Mono<Void> handleReportById(ServerWebExchange exchange, String id) {
+        return reportServiceWebClient.get()
+            .uri("/api/reports/{id}", id)
+            .retrieve()
+            .bodyToMono(Report.class)
+            .flatMap(this::setEventName)
+            .flatMap(report -> buildSuccessResponse(exchange, report))
+            .onErrorResume(error -> buildErrorResponse(exchange, error));
+    }
 
-    private boolean isReportRequest(ServerHttpRequest request) {
-        return request.getPath().toString().equals("/api/reports") 
-            && request.getMethod() == HttpMethod.POST;
+    private Mono<Void> handleReportsByState(ServerWebExchange exchange, String state) {
+        return reportServiceWebClient.get()
+            .uri("api/reports/state/{state}", state)
+            .retrieve()
+            .bodyToFlux(Report.class)
+            .flatMap(this::setEventName)
+            .collectList()
+            .flatMap(reportList -> buildSuccessResponse(exchange, reportList))
+            .onErrorResume(error -> buildErrorResponse(exchange, error));
+    }
+
+    private Mono<Report> setEventName(Report report) {
+        return getEventName(report.getIdEvent())
+            .doOnNext(name -> log.info("Nombre del evento para ID {}: {}", report.getIdEvent(), name))
+            .map(eventName -> {
+                report.setEventName(eventName);
+                return report;
+            });
     }
 
     public Mono<List<Report>> retrieveAllReports() {
-        log.info("estamos en retiurve reports");
-            return reportServiceWebClient.get()
-                .uri("/api/reports/")
-                .retrieve()
-                .bodyToFlux(Report.class)
-                .collectList()
-                .switchIfEmpty(Mono.error(new RuntimeException("No reports found")));
-        }  
+        return reportServiceWebClient.get()
+            .uri("/api/reports/")
+            .retrieve()
+            .bodyToFlux(Report.class)
+            .collectList()
+            .switchIfEmpty(Mono.error(new RuntimeException("No reports found")));
+    }
 
     public Mono<String> getEventName(Long eventId) {
         return eventServiceWebClient.get()
@@ -101,17 +122,25 @@ public class ReportFilter implements GlobalFilter {
             .bodyToMono(String.class);
     }
 
-   
- 
-
+    // Para una sola respuesta (por ID)
     private Mono<Void> buildSuccessResponse(ServerWebExchange exchange, Report response) {
         try {
-
-            log.info(response.toString());
             String json = objectMapper.writeValueAsString(response);
-            log.info("JSON de respuesta: {}", response);
             exchange.getResponse().getHeaders().setContentType(MediaType.APPLICATION_JSON);
-            byte[] bytes = objectMapper.writeValueAsBytes(response);
+            byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
+            DataBuffer buffer = exchange.getResponse().bufferFactory().wrap(bytes);
+            return exchange.getResponse().writeWith(Mono.just(buffer));
+        } catch (Exception e) {
+            return buildErrorResponse(exchange, e);
+        }
+    }
+
+    // Para lista de respuestas (todos o por estado)
+    private Mono<Void> buildSuccessResponse(ServerWebExchange exchange, List<Report> responseList) {
+        try {
+            String json = objectMapper.writeValueAsString(responseList);
+            exchange.getResponse().getHeaders().setContentType(MediaType.APPLICATION_JSON);
+            byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
             DataBuffer buffer = exchange.getResponse().bufferFactory().wrap(bytes);
             return exchange.getResponse().writeWith(Mono.just(buffer));
         } catch (Exception e) {
@@ -121,15 +150,13 @@ public class ReportFilter implements GlobalFilter {
 
     private Mono<Void> buildErrorResponse(ServerWebExchange exchange, Throwable error) {
         exchange.getResponse().setStatusCode(
-            error.getMessage().contains("no encontrado") 
-                ? HttpStatus.NOT_FOUND 
+            error.getMessage().contains("no encontrado")
+                ? HttpStatus.NOT_FOUND
                 : HttpStatus.BAD_REQUEST
         );
         exchange.getResponse().getHeaders().setContentType(MediaType.TEXT_PLAIN);
-        return exchange.getResponse().writeWith(
-            Mono.just(exchange.getResponse()
-                .bufferFactory()
-                .wrap(error.getMessage().getBytes()))
-        );
+        byte[] bytes = error.getMessage().getBytes(StandardCharsets.UTF_8);
+        DataBuffer buffer = exchange.getResponse().bufferFactory().wrap(bytes);
+        return exchange.getResponse().writeWith(Mono.just(buffer));
     }
 }
