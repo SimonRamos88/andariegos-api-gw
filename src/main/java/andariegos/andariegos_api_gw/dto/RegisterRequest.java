@@ -3,7 +3,7 @@ package andariegos.andariegos_api_gw.dto;
 import lombok.Data;
 
 @Data
-public class LoginRequest {
+public class RegisterRequest {
         private String identifier;
         private String password;
 }
