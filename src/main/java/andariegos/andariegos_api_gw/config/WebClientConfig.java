@@ -18,7 +18,10 @@ import org.springframework.beans.factory.annotation.Value;
 
 @Configuration
 public class WebClientConfig {
-    
+
+
+    @Value("${AUTH_SERVICE}")
+    private String authServiceUrl;
 
     @Value("${EVENT_SERVICE}")
     private String eventServiceUrl;
@@ -29,7 +32,7 @@ public class WebClientConfig {
     @Value("${CLIENT_SERVICE}")
     private String clientServiceUrl;
 
-     @Value("${REPORTS_SERVICE}")
+    @Value("${REPORTS_SERVICE}")
     private String reportsServiceUrl;
 
     @Bean
@@ -55,6 +58,15 @@ public class WebClientConfig {
             .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
             .build();
     }
+
+     @Bean
+    public WebClient authServiceWebClient() {
+        return WebClient.builder()
+            .baseUrl(authServiceUrl+"/graphql") // MS Usuarios (NestJS)
+            .defaultHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+            .defaultHeader("x-apollo-operation-name", "GraphQLRequest") // Header anti-CSRF
+            .build();
+    }
     
     @Bean
     public WebClient userServiceWebClient() {
@@ -63,7 +75,6 @@ public class WebClientConfig {
             .defaultHeader(HttpHeaders.CONTENT_TYPE, "application/json")
             .defaultHeader("x-apollo-operation-name", "GraphQLRequest") // Header anti-CSRF
             .build();
-
     }
 
 

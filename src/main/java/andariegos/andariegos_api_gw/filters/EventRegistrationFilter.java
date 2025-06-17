@@ -22,6 +22,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.Map;
 
 import org.slf4j.Logger;
@@ -101,24 +102,32 @@ public class EventRegistrationFilter implements GlobalFilter {
     
         String userId = request.getUserId();
 
+
         String graphqlQuery = """
-            query {
-                user(id: "%s") {
+            query User($id: String!) {
+                user(id: $id) {
+                    _id
                     name
                     username
                     email
-                    password
-                    roles
+                    registrationDate
                     state
                 }
             }
-        """.formatted(userId); 
+        """;
+
+        // Crear estructura JSON como Map
+        Map<String, Object> body = new HashMap<>();
+        body.put("query", graphqlQuery);
+
+        Map<String, Object> variables = new HashMap<>();
+        variables.put("id", userId);
+
+        body.put("variables", variables);
 
         return userServiceWebClient.post()
             .header("x-apollo-operation-name", "GetUser")
-            .bodyValue(Map.of(
-                "query", graphqlQuery
-            ))
+            .bodyValue(body)
             .retrieve()
             .bodyToMono(GraphQLUserResponse.class)
             .doOnSubscribe(subscribe -> log.info("Enviando petición GraphQL..."))
