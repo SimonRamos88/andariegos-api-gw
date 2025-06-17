@@ -5,5 +5,5 @@ import lombok.Data;
 @Data
 public class AttendanceResponse {
         private int attendanceId;
-        private String userId;
+        private String idUser;
 }

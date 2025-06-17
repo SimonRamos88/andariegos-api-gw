@@ -1,5 +1,6 @@
 package andariegos.andariegos_api_gw.filters;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -9,13 +10,16 @@ import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.server.ServerWebExchange;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import andariegos.andariegos_api_gw.dto.AttendanceResponse;
@@ -53,12 +57,11 @@ public class AttendanceAggregationFilter implements GlobalFilter {
         }
 
         String eventId = extractEventId(exchange.getRequest().getPath().toString());
-        
+        System.out.println("AttendanceAggregationFilter: Entrando al filtro de asistencia para el evento con ID: " + eventId);
         return fetchAttendanceRecords(eventId)
             .flatMap(this::extractUserIds)
             .doOnNext(response -> log.info("userids 1: {}", response))
             .flatMap(this::fetchUserDetails)
-            .doOnNext(response -> log.info("userdet 2: {}", response))
             .flatMap(userDetails -> buildResponse(exchange, userDetails))
             .onErrorResume(e -> handleError(exchange, e));
     }
@@ -85,79 +88,67 @@ public class AttendanceAggregationFilter implements GlobalFilter {
 
     private Mono<List<String>> extractUserIds(List<AttendanceResponse> records) {
         List<String> userIds = records.stream()
-            .map(AttendanceResponse::getUserId)
+            .map(AttendanceResponse::getIdUser)
             .collect(Collectors.toList());
+        log.info("userids 2: {}", userIds);
         return Mono.just(userIds);
     }
 
-    private Mono<GraphQLUsersDetailsResponse> fetchUserDetails(List<String> userIds) {
+    private Mono<List<GraphQLUsersDetailsResponse.User>> fetchUserDetails(List<String> userIds) {
 
-    log.info(userIds.getClass().getName());
+    for (String id : userIds) {
+        log.info("userId: {}", id);
+    }
 
     String userIdsString = userIds.stream()
     .map(id -> "\"" + id + "\"")  // poner comillas dobles alrededor de cada ID
     .collect(Collectors.joining(", ", "[ ", " ]"));
 
-    log.info(userIdsString);
+    log.info("userIdsString: {}", userIdsString);
+
 
     String graphqlQuery = """
-     query{
-            findUsersByIds(userIds: %s){
-                user{
-                    name
-                    email
+        query findUsersByIds($userIds: [String!]!) {
+            findUsersByIds(userIds: $userIds) {
+                user {
+                    _id
                     name
                     username
-                    email
-                    password
-                    roles
                     state
                 }
-                
             }
-
         }
+    """;
 
+        // Crear estructura JSON como Map
+    Map<String, Object> body = new HashMap<>();
 
-    """.formatted(userIdsString, null);
+    body.put("query", graphqlQuery);
 
-    log.info(graphqlQuery);
+    Map<String, Object> requestBody = Map.of(
+        "query", graphqlQuery,
+        "variables", Map.of("userIds", userIds)
+    );
 
-    // return userServiceWebClient.post()
-    // .header("x-apollo-operation-name", "GetUser")
-    // .bodyValue(Map.of(
-    //     "query", graphqlQuery
-    // ))
-    // .retrieve()
-    // .bodyToMono(GraphQLUsersDetailsResponse.class)
-    // .doOnNext(response -> log.info("userdet1: {}", response.toString()))
-    // .onErrorResume(e -> Mono.error(new RuntimeException("Error al validar usuario: " + e.getMessage())));
-
-
-                
     return userServiceWebClient.post()
-        .header("x-apollo-operation-name", "GetUser")
-        .bodyValue(Map.of(
-            "query", graphqlQuery
-        ))
+        .uri("http://andariegos-profile-service:4002/graphql")
+        .contentType(MediaType.APPLICATION_JSON)
+        .bodyValue(requestBody)
         .retrieve()
-        .bodyToMono(String.class) // primero como JSON crudo
-        .doOnNext(json -> log.info("JSON recibido: {}", json)) // log del JSON crudo
-        .map(json -> {
+        .bodyToMono(String.class)
+        .flatMap(json -> {
             try {
-                // convertir tú mismo con Jackson u otro
-                ObjectMapper mapper = new ObjectMapper();
-                log.info("antes de mapper");
-                return mapper.readValue(json, GraphQLUsersDetailsResponse.class);
+                GraphQLUsersDetailsResponse response = objectMapper.readValue(json, GraphQLUsersDetailsResponse.class);
+                return Mono.just(response.getUsers()); // Usamos el método getUsers()
             } catch (Exception e) {
-                 log.error("Error al convertir JSON a objeto: {}", e.getMessage(), e);
-                throw new RuntimeException("Error al convertir JSON a objeto", e);
+                log.error("Error parsing response: {}", json);
+                return Mono.error(e);
             }
-        }).onErrorResume(e -> Mono.error(new RuntimeException("Error al validar usuario: " + e.getMessage())));
+        });
     }
 
 
-    private Mono<Void> buildResponse(ServerWebExchange exchange, GraphQLUsersDetailsResponse userDetails) {
+    private Mono<Void> buildResponse(ServerWebExchange exchange, List<GraphQLUsersDetailsResponse.User> userDetails) {
     try {
         log.info("llego a build");
         exchange.getResponse().getHeaders().setContentType(MediaType.APPLICATION_JSON);
