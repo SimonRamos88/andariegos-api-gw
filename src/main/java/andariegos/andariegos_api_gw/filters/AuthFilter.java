@@ -27,6 +27,7 @@ import andariegos.andariegos_api_gw.dto.AuthResponse;
 import andariegos.andariegos_api_gw.dto.GraphQLUsersDetailsResponse;
 import andariegos.andariegos_api_gw.dto.LoginRequest;
 import andariegos.andariegos_api_gw.dto.RegistationResponse;
+import andariegos.andariegos_api_gw.dto.RegisterRequest;
 import andariegos.andariegos_api_gw.dto.UserDetailsResponse;
 import andariegos.andariegos_api_gw.dto.UsersDetailsResponse;
 import reactor.core.publisher.Mono;
@@ -83,8 +84,8 @@ public class AuthFilter implements GlobalFilter {
     }
 
     private Mono<Void> processRegisterRequest(ServerWebExchange exchange) {
-        return parseRequestBody(exchange)
-            .flatMap(this::login)
+        return parseRequestRegisterBody(exchange)
+            .flatMap(this::register)
             .flatMap(authResponse -> fetchUserProfile(authResponse.getAccess_token(), authResponse.getUserId())
                 .map(userProfile -> Map.of(
                     "access_token", authResponse.getAccess_token(),
@@ -94,7 +95,106 @@ public class AuthFilter implements GlobalFilter {
             .flatMap(responseBody -> buildSuccessResponse(exchange, responseBody))
             .onErrorResume(error -> buildErrorResponse(exchange, error));
     }
+    
+    private Mono<RegisterRequest> parseRequestRegisterBody(ServerWebExchange exchange) {
+        return exchange.getRequest().getBody()
+            .next()
+            .flatMap(buffer -> {
+                try {
+                    String bodyStr = buffer.toString(StandardCharsets.UTF_8);
+                    // System.out.println("exito parse");
+                    return Mono.just(objectMapper.readValue(bodyStr, RegisterRequest.class));
+                } catch (Exception e) {
+                    // System.out.println("fracaso parse");       
+                    return Mono.error(new RuntimeException("Formato de solicitud inválido"));
+                }
+            });
+    }
 
+
+    private Mono<AuthResponse> register(RegisterRequest request) {
+        System.out.println("AuthFilter: Procesando solicitud de inicio de sesión "+ request.getEmail());
+        System.out.println("AuthFilter: Procesando solicitud de inicio de sesión "+ request.getPassword());
+
+        String graphqlMutation = """
+            mutation registerUser($createUserInput: CreateUserInput!) {
+                registerUser(createUserInput: $createUserInput) {
+                    access_token
+                }
+            }
+        """;
+
+        Map<String, Object> createUserInput = Map.of(
+            "email", request.getEmail(),
+            "username", request.getUsername(),
+            "password", request.getPassword(),
+            "roles", request.getRoles() != null ? request.getRoles() : List.of("USER") // Default role if none provided
+        );
+
+        Map<String, Object> requestBody = Map.of(
+            "query", graphqlMutation,
+            "variables", Map.of("createUserInput", createUserInput)
+        );
+
+        return userServiceWebClient.post()
+            .uri("http://andariegos-auth-service:4001/graphql")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(requestBody)
+            .retrieve()
+            .bodyToMono(JsonNode.class)
+            .map(response -> {
+
+                if (response.has("errors")) {
+                    String errorMessage = response.get("errors").get(0).get("message").asText();
+                    throw new RuntimeException("GraphQL error: " + errorMessage);
+                }
+
+                JsonNode registerNode = response.path("data").path("registerUser");
+                AuthResponse auth = new AuthResponse();
+                auth.setAccess_token(registerNode.path("access_token").asText());
+                return auth;
+            });
+    }
+
+    private Mono<JsonNode> createUserProfile(String token) {
+        System.out.println("AuthFilter: Creating: " + token);
+        String graphqlQuery = """
+            query User($id: String!) {
+                user(id: $id) {
+                    _id
+                    name
+                    username
+                    email
+                    registrationDate
+                    state
+                }
+            }
+        """;
+
+        // Crear estructura JSON como Map
+        Map<String, Object> body = new HashMap<>();
+        body.put("query", graphqlQuery);
+
+        Map<String, Object> variables = new HashMap<>();
+        // variables.put("id", userId);
+
+        body.put("variables", variables);
+
+        return userServiceWebClient.post()
+            .uri("http://andariegos-profile-service:4002/graphql")
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(body) // deja que WebClient lo serialice correctamente
+            .retrieve()
+            .bodyToMono(JsonNode.class)
+            .map(response -> {
+                if (response.has("errors")) {
+                    String errorMessage = response.get("errors").get(0).get("message").asText();
+                    throw new RuntimeException("GraphQL error: " + errorMessage);
+                }
+                return response.path("data").path("user");
+            });
+    }
 
     private Mono<LoginRequest> parseRequestBody(ServerWebExchange exchange) {
         return exchange.getRequest().getBody()
@@ -148,15 +248,17 @@ public class AuthFilter implements GlobalFilter {
         String graphqlQuery = """
             query User($id: String!) {
                 user(id: $id) {
-                    _id
+                    userId
                     name
-                    username
-                    email
-                    registrationDate
-                    state
                 }
             }
         """;
+        // _id
+        //             name
+        //             username
+        //             email
+        //             registrationDate
+        //             state
 
         // Crear estructura JSON como Map
         Map<String, Object> body = new HashMap<>();
