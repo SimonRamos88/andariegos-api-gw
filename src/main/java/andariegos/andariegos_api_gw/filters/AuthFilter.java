@@ -30,6 +30,7 @@ import andariegos.andariegos_api_gw.dto.RegistationResponse;
 import andariegos.andariegos_api_gw.dto.RegisterRequest;
 import andariegos.andariegos_api_gw.dto.UserDetailsResponse;
 import andariegos.andariegos_api_gw.dto.UsersDetailsResponse;
+import ch.qos.logback.core.subst.Token;
 import reactor.core.publisher.Mono;
 
 import org.slf4j.Logger;
@@ -85,15 +86,19 @@ public class AuthFilter implements GlobalFilter {
 
     private Mono<Void> processRegisterRequest(ServerWebExchange exchange) {
         return parseRequestRegisterBody(exchange)
-            .flatMap(this::register)
-            .flatMap(authResponse -> fetchUserProfile(authResponse.getAccess_token(), authResponse.getUserId())
-                .map(userProfile -> Map.of(
-                    "access_token", authResponse.getAccess_token(),
-                    "user", userProfile
-                ))
-            )
-            .flatMap(responseBody -> buildSuccessResponse(exchange, responseBody))
-            .onErrorResume(error -> buildErrorResponse(exchange, error));
+                .flatMap(registerRequest -> 
+                    register(registerRequest)
+                        .flatMap(authResponse -> 
+                            // Pasamos registerRequest como segundo argumento
+                            createUserProfile(authResponse.getAccess_token(), registerRequest)
+                                .map(userProfile -> Map.of(
+                                    "access_token", authResponse.getAccess_token(),
+                                    "user", userProfile
+                                ))
+                        )
+                        // Pasamos registerRequest al resto del flujo si es necesario
+                ).flatMap(responseBody -> buildSuccessResponse(exchange, responseBody))
+                .onErrorResume(error -> buildErrorResponse(exchange, error));
     }
     
     private Mono<RegisterRequest> parseRequestRegisterBody(ServerWebExchange exchange) {
@@ -156,35 +161,40 @@ public class AuthFilter implements GlobalFilter {
             });
     }
 
-    private Mono<JsonNode> createUserProfile(String token) {
+    private Mono<JsonNode> createUserProfile(String token, RegisterRequest request) {
         System.out.println("AuthFilter: Creating: " + token);
-        String graphqlQuery = """
-            query User($id: String!) {
-                user(id: $id) {
-                    _id
+        System.out.println("AuthFilter: Creating: " + request.getName());
+        System.out.println("AuthFilter: Creating: " + request.getNationality());
+
+
+
+        String graphqlMutation = """
+            mutation registerUser($createProfileInput: CreateProfileInput!) {
+                registerUser(createProfileInput: $createProfileInput) {
+                    userId
                     name
-                    username
-                    email
-                    registrationDate
-                    state
+                    nationality
                 }
             }
         """;
 
-        // Crear estructura JSON como Map
-        Map<String, Object> body = new HashMap<>();
-        body.put("query", graphqlQuery);
+        Map<String, Object> createProfileInput = Map.of(
+            "accessToken", token,
+            "name", request.getName(),
+            "nationality", request.getNationality(),
+            "state", "active" // Default role if none provided
+        );
 
-        Map<String, Object> variables = new HashMap<>();
-        // variables.put("id", userId);
-
-        body.put("variables", variables);
+        Map<String, Object> requestBody = Map.of(
+            "query", graphqlMutation,
+            "variables", Map.of("createProfileInput", createProfileInput)
+        );
 
         return userServiceWebClient.post()
             .uri("http://andariegos-profile-service:4002/graphql")
             .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
             .contentType(MediaType.APPLICATION_JSON)
-            .bodyValue(body) // deja que WebClient lo serialice correctamente
+            .bodyValue(requestBody) // deja que WebClient lo serialice correctamente
             .retrieve()
             .bodyToMono(JsonNode.class)
             .map(response -> {
@@ -192,7 +202,7 @@ public class AuthFilter implements GlobalFilter {
                     String errorMessage = response.get("errors").get(0).get("message").asText();
                     throw new RuntimeException("GraphQL error: " + errorMessage);
                 }
-                return response.path("data").path("user");
+                return response.path("data").path("registerUser");
             });
     }
 

@@ -65,13 +65,13 @@ spring:
           predicates:
             - Path=/api/events/{id}
             - Method=PUT
-        
+
         - id: tours-create
           uri: ${EVENT_SERVICE}
           predicates:
             - Path=/api/tours
             - Method=POST
-        
+
         - id: tours-update
           uri: ${EVENT_SERVICE}
           predicates:
@@ -90,6 +90,12 @@ spring:
           uri: ${AUTH_SERVICE}
           predicates:
             - Path=/api/auth/login
+            - Method=POST
+
+        - id: auth-login
+          uri: ${AUTH_SERVICE}
+          predicates:
+            - Path=/api/auth/register
             - Method=POST
           # filters:
           #   - RewritePath=/api/(?<segment>.*), /graphql/api/$\{segment}
