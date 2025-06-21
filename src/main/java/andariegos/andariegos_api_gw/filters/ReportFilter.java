@@ -10,7 +10,6 @@ import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.server.ServerWebExchange;
@@ -48,6 +47,11 @@ public class ReportFilter implements GlobalFilter {
 
         if ("/api/report".equals(path) && method == HttpMethod.GET) {
             log.info("Obteniendo todos los reportes");
+            return handleAllReports(exchange);
+        }
+
+        if ("/api/report".equals(path) && method == HttpMethod.POST) {
+            log.info("prueba reportes");
             return handleAllReports(exchange);
         }
 
