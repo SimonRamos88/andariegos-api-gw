@@ -9,13 +9,8 @@ spring:
             allowedMethods: "*"
             allowedHeaders: "*"
       routes:
-        # Ruta para registro de eventos (nueva)
-        - id: event-registration
-          uri: ${EVENT_SERVICE}
-          predicates:
-            - Path=/api/events/registration
-            - Method=POST
 
+        # ruta de reportes
         - id: all-report-route
           uri: ${REPORTS_SERVICE}
           predicates:
@@ -33,6 +28,38 @@ spring:
           predicates:
             - Path=/api/report/state/{state}
             - Method=GET
+
+        - id: delete-report
+          uri: ${REPORTS_SERVICE}
+          predicates:
+            - Path=/api/report/{id}
+            - Method=DELETE
+          filters:
+            - RewritePath=/api/report/(?<id>.*), /api/reports/$\{id}
+        
+        - id: update-report
+          uri: ${REPORTS_SERVICE}
+          predicates:
+            - Path=/api/report/{id}
+            - Method=PUT
+          filters:
+            - RewritePath=/api/report/(?<id>.*), /api/reports/$\{id}
+
+        - id: post-report
+          uri: ${REPORTS_SERVICE}
+          predicates:
+            - Path=/api/report
+            - Method=POST
+          filters:
+            - RewritePath=/api/report, /api/reports/
+
+        # Ruta para registro de eventos (nueva)
+        - id: event-registration
+          uri: ${EVENT_SERVICE}
+          predicates:
+            - Path=/api/events/registration
+            - Method=POST
+
         # Ruta existente para obtener asistentes (se mantiene igual)
         - id: event-attendees
           uri: ${EVENT_SERVICE}
@@ -58,6 +85,13 @@ spring:
           predicates:
             - Path=/api/events
             - Method=POST
+        
+        # Ruta para DELETE /api/events/{id} (eliminar evento)
+        - id: events-delete
+          uri: ${EVENT_SERVICE}
+          predicates:
+            - Path=/api/events/{id}
+            - Method=DELETE
 
         # Ruta para PUT /api/events/{id} (actualizar evento)
         - id: events-update
@@ -66,6 +100,8 @@ spring:
             - Path=/api/events/{id}
             - Method=PUT
 
+
+        # Ahora con toures
         - id: tours-create
           uri: ${EVENT_SERVICE}
           predicates:
@@ -75,15 +111,27 @@ spring:
         - id: tours-update
           uri: ${EVENT_SERVICE}
           predicates:
-            - Path=/api/tours/**
+            - Path=/api/tours/{id}
             - Method=PUT
-
-        # Ruta para DELETE /api/events/{id} (eliminar evento)
-        - id: events-delete
+            
+        - id: tours-delete
           uri: ${EVENT_SERVICE}
           predicates:
-            - Path=/api/events/{id}
+            - Path=/api/tours/{id}
             - Method=DELETE
+        
+        - id: tours-get-by-id
+          uri: ${EVENT_SERVICE}
+          predicates:
+            - Path=/api/tours/{id}
+            - Method=GET
+
+        - id: tours-get-all
+          uri: ${EVENT_SERVICE}
+          predicates:
+            - Path=/api/tours
+            - Method=GET
+
 
         # RUTAS DE MS PROFILE
         - id: auth-login
