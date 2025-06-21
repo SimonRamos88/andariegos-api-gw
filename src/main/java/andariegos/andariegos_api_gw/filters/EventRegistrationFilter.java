@@ -106,11 +106,8 @@ public class EventRegistrationFilter implements GlobalFilter {
         String graphqlQuery = """
             query User($id: String!) {
                 user(id: $id) {
-                    _id
+                    userId
                     name
-                    username
-                    email
-                    registrationDate
                     state
                 }
             }

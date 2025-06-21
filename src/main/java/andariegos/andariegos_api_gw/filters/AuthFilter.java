@@ -65,12 +65,6 @@ public class AuthFilter implements GlobalFilter {
         return chain.filter(exchange);
     }
 
-    // --- Métodos actualizados ---
-
-    private boolean isValidPath(String path) {
-        return path.matches("/api/auth/login"); 
-    }
-
     private Mono<Void> processLoginRequest(ServerWebExchange exchange) {
         return parseRequestBody(exchange)
             .flatMap(this::login)
@@ -162,11 +156,6 @@ public class AuthFilter implements GlobalFilter {
     }
 
     private Mono<JsonNode> createUserProfile(String token, RegisterRequest request) {
-        System.out.println("AuthFilter: Creating: " + token);
-        System.out.println("AuthFilter: Creating: " + request.getName());
-        System.out.println("AuthFilter: Creating: " + request.getNationality());
-
-
 
         String graphqlMutation = """
             mutation registerUser($createProfileInput: CreateProfileInput!) {

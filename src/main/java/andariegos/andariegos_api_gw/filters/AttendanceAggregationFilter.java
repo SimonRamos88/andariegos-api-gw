@@ -111,10 +111,10 @@ public class AttendanceAggregationFilter implements GlobalFilter {
         query findUsersByIds($userIds: [String!]!) {
             findUsersByIds(userIds: $userIds) {
                 user {
-                    _id
+                    userId
                     name
-                    username
                     state
+                    nationality
                 }
             }
         }
