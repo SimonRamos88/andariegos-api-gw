@@ -1,0 +1,9 @@
+andariegos\andariegos_api_gw\dto\Data.class
+andariegos\andariegos_api_gw\dto\GraphQLUserResponse$User.class
+andariegos\andariegos_api_gw\dto\GraphQLUserResponse.class
+andariegos\andariegos_api_gw\dto\AuthResponse.class
+andariegos\andariegos_api_gw\AndariegosApiGwApplication.class
+andariegos\andariegos_api_gw\dto\AttendanceResponse.class
+andariegos\andariegos_api_gw\dto\GraphQLUserResponse$Data.class
+andariegos\andariegos_api_gw\dto\EventRegistationRequest.class
+andariegos\andariegos_api_gw\config\WebClientConfig.class

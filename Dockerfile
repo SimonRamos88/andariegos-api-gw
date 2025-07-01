@@ -12,8 +12,11 @@ FROM eclipse-temurin:21-jre
 
 WORKDIR /app
 
+# Copiar el jar compilado
 COPY --from=builder /app/target/*.jar app.jar
 
+# Exponer el puerto HTTPS
 EXPOSE 7080
 
 ENTRYPOINT ["java","-jar","app.jar"]
+
