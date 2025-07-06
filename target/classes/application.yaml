@@ -1,11 +1,29 @@
 server:
   port: 7080
   ssl:
-    enabled: true
+    enabled: false
     key-store: classpath:ssl/keystore.p12
     key-store-password: NuevaClaveSegura123
     key-store-type: PKCS12
     key-alias: andariegos
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      CircuitBreakerInstance:
+        registerHealthIndicator: true
+        slidingWindowSize: 2
+        failureRateThreshold: 60
+        waitDurationInOpenState: 80s
+        permittedNumberOfCallsInHalfOpenState: 1
+        minimumNumberOfCalls: 1
+
+  timelimiter:
+    instances:
+      CircuitBreakerInstance:
+        timeoutDuration: 5s  # ⏱ Tiempo máximo de espera para la respuesta
+        cancelRunningFuture: true
+
 
 spring:
   cloud:
@@ -25,18 +43,30 @@ spring:
           predicates:
             - Path=/api/report
             - Method=GET
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: CircuitBreakerInstance
 
         - id: report-by-id-route
           uri: ${REPORTS_SERVICE}
           predicates:
             - Path=/api/report/{id}
             - Method=GET
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: CircuitBreakerInstance          
 
         - id: report-by-state-route
           uri: ${REPORTS_SERVICE}
           predicates:
             - Path=/api/report/state/{state}
             - Method=GET
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: CircuitBreakerInstance
 
         - id: delete-report
           uri: ${REPORTS_SERVICE}
@@ -45,6 +75,10 @@ spring:
             - Method=DELETE
           filters:
             - RewritePath=/api/report/(?<id>.*), /api/reports/$\{id}
+
+            - name: CircuitBreaker
+              args:
+                name: CircuitBreakerInstance
         
         - id: update-report
           uri: ${REPORTS_SERVICE}
@@ -53,6 +87,9 @@ spring:
             - Method=PUT
           filters:
             - RewritePath=/api/report/(?<id>.*), /api/reports/$\{id}
+            - name: CircuitBreaker
+              args:
+                name: CircuitBreakerInstance           
 
         - id: post-report
           uri: ${REPORTS_SERVICE}
@@ -61,6 +98,9 @@ spring:
             - Method=POST
           filters:
             - RewritePath=/api/report, /api/reports/
+            - name: CircuitBreaker
+              args:
+                name: CircuitBreakerInstance
 
         # Ruta para registro de eventos (nueva)
         - id: event-registration
@@ -68,19 +108,31 @@ spring:
           predicates:
             - Path=/api/events/registration
             - Method=POST
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: CircuitBreakerInstance
 
         # Ruta existente para obtener asistentes (se mantiene igual)
         - id: event-attendees
           uri: ${EVENT_SERVICE}
           predicates:
             - Path=/api/events/registration/attendees/*
-          
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: CircuitBreakerInstance
+
         # Ruta para GET /api/events (obtener todos los eventos)
         - id: events-get-all
           uri: ${EVENT_SERVICE} # MS de Eventos
           predicates:
             - Path=/api/events
             - Method=GET
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: CircuitBreakerInstance
 
         # Ruta para GET /api/events/{id} (obtener un evento específico)
         - id: events-get-by-id
@@ -88,6 +140,10 @@ spring:
           predicates:
             - Path=/api/events/{id}
             - Method=GET
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: CircuitBreakerInstance
 
         # Ruta para POST /api/events (crear evento)
         - id: events-create
@@ -95,13 +151,21 @@ spring:
           predicates:
             - Path=/api/events
             - Method=POST
-        
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: CircuitBreakerInstance
+
         # Ruta para DELETE /api/events/{id} (eliminar evento)
         - id: events-delete
           uri: ${EVENT_SERVICE}
           predicates:
             - Path=/api/events/{id}
             - Method=DELETE
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: CircuitBreakerInstance
 
         # Ruta para PUT /api/events/{id} (actualizar evento)
         - id: events-update
@@ -109,6 +173,10 @@ spring:
           predicates:
             - Path=/api/events/{id}
             - Method=PUT
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: CircuitBreakerInstance
 
         # Ahora con tours
         - id: tours-create
@@ -116,30 +184,50 @@ spring:
           predicates:
             - Path=/api/tours
             - Method=POST
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: CircuitBreakerInstance
 
         - id: tours-update
           uri: ${EVENT_SERVICE}
           predicates:
             - Path=/api/tours/{id}
             - Method=PUT
-          
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: CircuitBreakerInstance
+
         - id: tours-delete
           uri: ${EVENT_SERVICE}
           predicates:
             - Path=/api/tours/{id}
             - Method=DELETE
-        
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: CircuitBreakerInstance
+
         - id: tours-get-by-id
           uri: ${EVENT_SERVICE}
           predicates:
             - Path=/api/tours/{id}
             - Method=GET
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: CircuitBreakerInstance
 
         - id: tours-get-all
           uri: ${EVENT_SERVICE}
           predicates:
             - Path=/api/tours
             - Method=GET
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: CircuitBreakerInstance
 
         # RUTAS DE MS PROFILE
         - id: auth-login
@@ -147,12 +235,20 @@ spring:
           predicates:
             - Path=/api/auth/login
             - Method=POST
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: CircuitBreakerInstance
 
         - id: auth-register
           uri: ${AUTH_SERVICE}
           predicates:
             - Path=/api/auth/register
             - Method=POST
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: CircuitBreakerInstance
 
         # Perfil de usuario
         - id: user-profile
@@ -162,6 +258,9 @@ spring:
             - Method=GET
           filters:
             - RewritePath=/api/(?<segment>.*), /graphql/api/$\{segment}
+            - name: CircuitBreaker
+              args:
+                name: CircuitBreakerInstance
 
         # Registro de usuario
         - id: user-register
@@ -171,6 +270,9 @@ spring:
             - Method=POST
           filters:
             - RewritePath=/api/(?<segment>.*), /graphql/api/$\{segment}
+            - name: CircuitBreaker
+              args:
+                name: CircuitBreakerInstance
 
         # Consultas de usuarios (GraphQL)
         - id: users-find-by-ids
@@ -180,6 +282,9 @@ spring:
             - Method=POST
           filters:
             - RewritePath=/api/(?<segment>.*), /graphql/api/$\{segment}
+            - name: CircuitBreaker
+              args:
+                name: CircuitBreakerInstance
 
         - id: users-find-all
           uri: ${PROFILE_SERVICE}
@@ -188,6 +293,9 @@ spring:
             - Method=GET
           filters:
             - RewritePath=/api/(?<segment>.*), /graphql/api/$\{segment}
+            - name: CircuitBreaker
+              args:
+                name: CircuitBreakerInstance
 
         - id: user-find-by-id
           uri: ${PROFILE_SERVICE}
@@ -196,6 +304,9 @@ spring:
             - Method=GET
           filters:
             - RewritePath=/api/(?<segment>.*), /graphql/api/$\{segment}
+            - name: CircuitBreaker
+              args:
+                name: CircuitBreakerInstance
 
         # Operaciones CRUD
         - id: user-update
@@ -205,6 +316,9 @@ spring:
             - Method=PUT
           filters:
             - RewritePath=/api/(?<segment>.*), /graphql/api/$\{segment}
+            - name: CircuitBreaker
+              args:
+                name: CircuitBreakerInstance
 
         - id: user-remove
           uri: ${PROFILE_SERVICE}
@@ -213,10 +327,16 @@ spring:
             - Method=DELETE
           filters:
             - RewritePath=/api/(?<segment>.*), /graphql/api/$\{segment}
-
+            - name: CircuitBreaker
+              args:
+                name: CircuitBreakerInstance
+                
         - id: graphql
           uri: ${PROFILE_SERVICE}
           predicates:
             - Path=/graphql/**
           filters:
             - RewritePath=/graphql/(?<segment>.*), /${segment}
+            - name: CircuitBreaker
+              args:
+                name: CircuitBreakerInstance
