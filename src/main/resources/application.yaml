@@ -33,6 +33,7 @@ spring:
           "[/**]":
             allowedOrigins:
               - ${CLIENT_SERVICE}
+              - ${MOBILE_PROXY_URL:http://localhost:8080}
             allowedMethods: "*"
             allowedHeaders: "*"
       routes:
