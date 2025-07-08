@@ -21,7 +21,7 @@ public class CircuitBreakerMonitor {
 
     @PostConstruct
     public void init() {
-        cb = registry.circuitBreaker("CircuitBreakerInstance");
+        cb = registry.circuitBreaker("EventsBreaker");
     }
 
     @Scheduled(fixedRate = 5000)
