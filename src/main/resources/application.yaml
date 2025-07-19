@@ -12,10 +12,10 @@ resilience4j:
     instances:
       EventsBreaker:
         registerHealthIndicator: true
-        slidingWindowSize: 10
-        failureRateThreshold: 80
-        waitDurationInOpenState: 5s
-        permittedNumberOfCallsInHalfOpenState: 10
+        slidingWindowSize: 30
+        failureRateThreshold: 100
+        waitDurationInOpenState: 80s
+        permittedNumberOfCallsInHalfOpenState: 1
         minimumNumberOfCalls: 10
 
       AuthBreaker:
@@ -25,7 +25,7 @@ resilience4j:
         waitDurationInOpenState: 80s
         permittedNumberOfCallsInHalfOpenState: 1
         minimumNumberOfCalls: 1
-      
+
       ProfileBreaker:
         registerHealthIndicator: true
         slidingWindowSize: 2
@@ -33,7 +33,7 @@ resilience4j:
         waitDurationInOpenState: 80s
         permittedNumberOfCallsInHalfOpenState: 1
         minimumNumberOfCalls: 1
-      
+
       ReportsBreaker:
         registerHealthIndicator: true
         slidingWindowSize: 2
@@ -43,20 +43,27 @@ resilience4j:
         minimumNumberOfCalls: 1
   
   timelimiter:
-    configs:
-      default:
-        timeoutDuration: 10s
-        cancelRunningFuture: true
-
     instances:
+      CircuitBreakerInstance:
+        timeoutDuration: 10s # ⏱ Tiempo máximo de espera para la respuesta
+        cancelRunningFuture: true
       EventsBreaker:
-        baseConfig: default 
-      AuthBreaker:
-        baseConfig: default
+        timeoutDuration: 10s
       ProfileBreaker:
-        baseConfig: default
+        timeoutDuration: 10s
+      AuthBreaker:
+        timeoutDuration: 10s
       ReportsBreaker:
-        baseConfig: default
+        timeoutDuration: 10s
+
+logging:
+  level:
+    root: INFO
+    org.springframework.cloud.gateway: DEBUG
+    org.springframework.web.reactive.function.client: DEBUG
+    reactor.netty.http.client: DEBUG
+    io.github.resilience4j: DEBUG
+
 spring:
   cloud:
     gateway:
@@ -69,7 +76,6 @@ spring:
             allowedMethods: "*"
             allowedHeaders: "*"
       routes:
-
         # ruta de reportes
         - id: all-report-route
           uri: ${REPORTS_SERVICE}
@@ -89,7 +95,7 @@ spring:
           filters:
             - name: CircuitBreaker
               args:
-                name: ReportsBreaker          
+                name: ReportsBreaker
 
         - id: report-by-state-route
           uri: ${REPORTS_SERVICE}
@@ -112,7 +118,7 @@ spring:
             - name: CircuitBreaker
               args:
                 name: ReportsBreaker
-        
+
         - id: update-report
           uri: ${REPORTS_SERVICE}
           predicates:
@@ -122,7 +128,7 @@ spring:
             - RewritePath=/api/report/(?<id>.*), /api/reports/$\{id}
             - name: CircuitBreaker
               args:
-                name: ReportsBreaker          
+                name: ReportsBreaker
 
         - id: post-report
           uri: ${REPORTS_SERVICE}
@@ -375,7 +381,7 @@ spring:
             - name: CircuitBreaker
               args:
                 name: ProfileBreaker
-                
+
         - id: graphql
           uri: ${PROFILE_SERVICE}
           predicates:
