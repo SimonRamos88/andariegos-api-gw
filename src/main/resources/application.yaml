@@ -12,11 +12,11 @@ resilience4j:
     instances:
       EventsBreaker:
         registerHealthIndicator: true
-        slidingWindowSize: 2
-        failureRateThreshold: 60
-        waitDurationInOpenState: 80s
-        permittedNumberOfCallsInHalfOpenState: 1
-        minimumNumberOfCalls: 1
+        slidingWindowSize: 10
+        failureRateThreshold: 80
+        waitDurationInOpenState: 5s
+        permittedNumberOfCallsInHalfOpenState: 10
+        minimumNumberOfCalls: 10
 
       AuthBreaker:
         registerHealthIndicator: true
@@ -41,14 +41,22 @@ resilience4j:
         waitDurationInOpenState: 80s
         permittedNumberOfCallsInHalfOpenState: 1
         minimumNumberOfCalls: 1
-
+  
   timelimiter:
-    instances:
-      CircuitBreakerInstance:
-        timeoutDuration: 5s  # ⏱ Tiempo máximo de espera para la respuesta
+    configs:
+      default:
+        timeoutDuration: 10s
         cancelRunningFuture: true
 
-
+    instances:
+      EventsBreaker:
+        baseConfig: default 
+      AuthBreaker:
+        baseConfig: default
+      ProfileBreaker:
+        baseConfig: default
+      ReportsBreaker:
+        baseConfig: default
 spring:
   cloud:
     gateway:
@@ -137,6 +145,17 @@ spring:
             - name: CircuitBreaker
               args:
                 name: EventsBreaker
+        
+        # Ruta para eliminar reservas
+        - id: event-registration
+          uri: ${EVENT_SERVICE}
+          predicates:
+            - Path=/api/events/registration/{id}
+            - Method=DELETE
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: EventsBreaker
 
         # Ruta existente para obtener asistentes (se mantiene igual)
         - id: event-attendees
@@ -158,6 +177,7 @@ spring:
             - name: CircuitBreaker
               args:
                 name: EventsBreaker
+                fallbackUri: forward:/fallback/events
 
         # Ruta para GET /api/events/{id} (obtener un evento específico)
         - id: events-get-by-id
