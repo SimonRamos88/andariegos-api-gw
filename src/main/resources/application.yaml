@@ -41,7 +41,7 @@ resilience4j:
         waitDurationInOpenState: 80s
         permittedNumberOfCallsInHalfOpenState: 1
         minimumNumberOfCalls: 1
-
+  
   timelimiter:
     instances:
       CircuitBreakerInstance:
@@ -147,6 +147,17 @@ spring:
           predicates:
             - Path=/api/events/registration
             - Method=POST
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: EventsBreaker
+        
+        # Ruta para eliminar reservas
+        - id: event-registration
+          uri: ${EVENT_SERVICE}
+          predicates:
+            - Path=/api/events/registration/{id}
+            - Method=DELETE
           filters:
             - name: CircuitBreaker
               args:
