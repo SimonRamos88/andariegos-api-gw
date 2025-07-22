@@ -59,7 +59,7 @@ public class WebClientConfig {
             .build();
     }
 
-     @Bean
+    @Bean
     public WebClient authServiceWebClient() {
         return WebClient.builder()
             .baseUrl(authServiceUrl+"/graphql") // MS Usuarios (NestJS)

@@ -131,7 +131,7 @@ public class AttendanceAggregationFilter implements GlobalFilter {
     );
 
     return userServiceWebClient.post()
-        .uri("http://andariegos-profile-service:4002/graphql")
+        // .uri("http://andariegos-profile-service:4002/graphql")
         .contentType(MediaType.APPLICATION_JSON)
         .bodyValue(requestBody)
         .retrieve()

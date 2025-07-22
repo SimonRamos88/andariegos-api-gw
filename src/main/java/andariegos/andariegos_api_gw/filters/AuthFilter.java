@@ -40,6 +40,7 @@ import org.slf4j.LoggerFactory;
 public class AuthFilter implements GlobalFilter {
 
     private final WebClient userServiceWebClient;
+    private final WebClient authServiceWebClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
 
@@ -47,9 +48,11 @@ public class AuthFilter implements GlobalFilter {
 
 
     public AuthFilter(
-        @Qualifier("userServiceWebClient") WebClient userServiceWebClient
+        @Qualifier("userServiceWebClient") WebClient userServiceWebClient,
+        @Qualifier("authServiceWebClient") WebClient authServiceWebClient
     ) {
         this.userServiceWebClient = userServiceWebClient;
+        this.authServiceWebClient = authServiceWebClient;
     }
 
     @Override
@@ -135,8 +138,7 @@ public class AuthFilter implements GlobalFilter {
             "variables", Map.of("createUserInput", createUserInput)
         );
 
-        return userServiceWebClient.post()
-            .uri("http://andariegos-auth-service:4001/graphql")
+        return authServiceWebClient.post()
             .contentType(MediaType.APPLICATION_JSON)
             .bodyValue(requestBody)
             .retrieve()
@@ -180,7 +182,6 @@ public class AuthFilter implements GlobalFilter {
         );
 
         return userServiceWebClient.post()
-            .uri("http://andariegos-profile-service:4002/graphql")
             .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
             .contentType(MediaType.APPLICATION_JSON)
             .bodyValue(requestBody) // deja que WebClient lo serialice correctamente
@@ -220,8 +221,7 @@ public class AuthFilter implements GlobalFilter {
             }
             """, request.getIdentifier(), request.getPassword());
 
-        return userServiceWebClient.post()
-            .uri("http://andariegos-auth-service:4001/graphql")
+        return authServiceWebClient.post()
             .contentType(MediaType.APPLICATION_JSON)
             .bodyValue(query)
             .retrieve()
@@ -238,6 +238,8 @@ public class AuthFilter implements GlobalFilter {
                 auth.setAccess_token(loginNode.path("access_token").asText());
                 auth.setUserId(loginNode.path("userId").asText());
                 return auth;
+            }).doOnError(error -> {
+                System.out.println("🔥 Error capturado: " + error.getMessage());
             });
     }
 
@@ -269,7 +271,6 @@ public class AuthFilter implements GlobalFilter {
         body.put("variables", variables);
 
         return userServiceWebClient.post()
-            .uri("http://andariegos-profile-service:4002/graphql")
             .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
             .contentType(MediaType.APPLICATION_JSON)
             .bodyValue(body) // deja que WebClient lo serialice correctamente
